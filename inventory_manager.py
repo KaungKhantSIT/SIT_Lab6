@@ -1,6 +1,7 @@
 #Main Program
 
 import json
+import math
 import re
 
 from product import Product
@@ -22,6 +23,8 @@ def parse_price(raw):
         price = round(float(raw), 2)
     except ValueError:
         raise ValueError("Please enter a valid number.")
+    if not math.isfinite(raw):
+        raise ValueError("Please enter a real number.")
     if price <= 0:
         raise ValueError("Please enter a price above $0.")
     return price
@@ -50,7 +53,8 @@ def load_inventory(filename):
             data = json.load(file)
         print(f"{filename} found.")
     #Empty inventory if file not found
-    except (FileNotFoundError, json.JSONDecodeError):
+    except (FileNotFoundError, json.JSONDecodeError, OSError) as err:
+        print(f"Could not read {filename} ({err}). Starting with an empty inventory.\n")
         return inventory
     for item in data:
         try:
@@ -63,28 +67,12 @@ def load_inventory(filename):
 #Save inventory to json file
 def save_inventory(filename, inventory):
     print("\nSaving inventory...")
-    with open(filename, 'w') as file:
-        json.dump([product.to_dict() for product in inventory.get_products()], file, indent=4)
-    print(f"Inventory saved successfully to {filename}.")
-
-'''
-#Show existing inventory
-def display_all(inventory):
-    print("\nCurrent Inventory")
-    print("-------------------------------------------")
-    for order in inventory:
-        print(f"ID:{order['ID']}|Name:{order['Name']}|Price:${order['Price']:.2f}|Stock:{order['Stock']}")
-    print("-------------------------------------------")
-
-    
-#Lookup product by ID
-def find_by_id(inventory, pid):
-    return next((p for p in inventory if p["ID"] == pid), None)
- 
-#Lookup product by Name
-def find_by_name(inventory, name):
-    return next((p for p in inventory if p["Name"].lower() == name.lower()), None)
-'''
+    try:
+        with open(filename, 'w') as file:
+            json.dump([product.to_dict() for product in inventory.get_products()], file, indent=4)
+        print(f"Inventory saved successfully to {filename}.")
+    except OSError as err:
+        print(f"Could not save inventory: {err}")
     
 #Add new product to inventory
 def add_product(inventory):
@@ -182,15 +170,19 @@ def manager():
         "Exit": None
     }
     #Menu
-    while True:
-        option = menu_page(menu)
-        if option == "Exit":
-            save_inventory(file, inventory)
-            print("\nThank you for using the Inventory Management System.")
-            print("Program terminated.")
-            return
-        menu[option]()
-        input("\nPress Enter to return to the menu...")
+    try:
+        while True:
+            option = menu_page(menu)
+            if option == "Exit":
+                break
+            menu[option]()
+            input("\nPress Enter to return to the menu...")
+    #Ctrl+C / Ctrl+D (or no interactive input) - exit cleanly instead of crashing
+    except (KeyboardInterrupt, EOFError):
+        print("\n\nInput interrupted.")
+    save_inventory(file, inventory)
+    print("\nThank you for using the Inventory Management System.")
+    print("Program terminated.")
     
 #Run main program
 if __name__ == "__main__":
