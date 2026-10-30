@@ -1,4 +1,5 @@
 #Product class
+import math
 
 class Product:
 
@@ -15,6 +16,8 @@ class Product:
     @staticmethod
     def __validate_price(price):
         price = round(float(price), 2)
+        if not math.isfinite(price):
+            raise ValueError("Price must be a real number")
         if price <= 0:
             raise ValueError("Price must be more than $0")
         return price
