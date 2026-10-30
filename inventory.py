@@ -26,7 +26,7 @@ class Inventory:
         if not self.__products:
             print("No products in inventory.")
         for product in self.__products:
-            product.display_information()
+            product.display_info()
         print("-------------------------------------------")
 
     def get_products(self):     
