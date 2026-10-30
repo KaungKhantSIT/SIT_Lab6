@@ -55,3 +55,17 @@ class Product:
         def display_info(self):         #Display product information
             print(f"ID: {self.__product_id}|Name: {self.__name}|"
                   f"Price: ${self.__price:.2f}|Stock: {self.__stock}")
+
+        #Dictionary Conversion
+
+        def to_dict(self):
+            return {
+                "ID": self.__product_id,
+                "Name": self.__name,
+                "Price": self.__price,
+                "Stock": self.__stock
+            }
+
+        @classmethod
+        def from_dict(cls, data):
+            return cls(data["ID"], data["Name"], data["Price"], data["Stock"])
