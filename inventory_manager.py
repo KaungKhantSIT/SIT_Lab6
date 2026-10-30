@@ -1,5 +1,10 @@
+#Main Program
+
 import json
 import re
+
+from product import Product
+from inventory import Inventory
 
 #Convert text to a non-negative int
 def parse_qty(raw):
@@ -39,23 +44,30 @@ def prompt_until_valid(prompt, parse):
 
 #Load inventory from json file
 def load_inventory(filename):
+    inventory = Inventory()
     try:
         with open(filename, 'r') as file:
-            inv = json.load(file)
+            data = json.load(file)
         print(f"{filename} found.")
-        print("Inventory loaded successfully.\n")
-    #Empty list if file not found
-    except FileNotFoundError or json.JSONDecodeError:
-        inv = []
-    return inv
+    #Empty inventory if file not found
+    except (FileNotFoundError, json.JSONDecodeError):
+        return inventory
+    for item in data:
+        try:
+            inventory.add_product(Product.from_dict(item))
+        except (KeyError, ValueError, TypeError) as err:
+            print(f"Skipped invalid record {item}: {err}")
+    print("Inventory loaded successfully.\n")
+    return inventory
 
 #Save inventory to json file
-def save_inventory(filename, orders):
+def save_inventory(filename, inventory):
     print("\nSaving inventory...")
     with open(filename, 'w') as file:
-        json.dump(orders, file, indent=2)
+        json.dump([product.to_dict() for product in inventory.get_products()], file, indent=4)
     print(f"Inventory saved successfully to {filename}.")
 
+'''
 #Show existing inventory
 def display_all(inventory):
     print("\nCurrent Inventory")
@@ -64,6 +76,7 @@ def display_all(inventory):
         print(f"ID:{order['ID']}|Name:{order['Name']}|Price:${order['Price']:.2f}|Stock:{order['Stock']}")
     print("-------------------------------------------")
 
+    
 #Lookup product by ID
 def find_by_id(inventory, pid):
     return next((p for p in inventory if p["ID"] == pid), None)
@@ -71,7 +84,8 @@ def find_by_id(inventory, pid):
 #Lookup product by Name
 def find_by_name(inventory, name):
     return next((p for p in inventory if p["Name"].lower() == name.lower()), None)
-
+'''
+    
 #Add new product to inventory
 def add_product(inventory):
     print("\nAdd New Product")
@@ -79,7 +93,7 @@ def add_product(inventory):
     while True:
         pid = prompt_until_valid("Product ID: ", parse_id)
         #Check if ID already exists
-        if find_by_id(inventory, pid):
+        if inventory.search_product(pid):
             print("Product ID already exists. Please enter a unique ID.")
         else:
             break
@@ -90,7 +104,7 @@ def add_product(inventory):
         if not name:
             print("Name cannot be empty.")
         #Check if product name already exists
-        elif find_by_name(inventory, name):
+        elif inventory.find_by_name(name):
             print("Product name already exists. Please enter a unique name.")
         else:
             break
@@ -98,44 +112,43 @@ def add_product(inventory):
     price = prompt_until_valid("Price($): ", parse_price)
     stock = prompt_until_valid("Stock Quantity: ", parse_qty)
     #Create and add product to inventory
-    product = {
-        "ID": pid,
-        "Name": name,
-        "Price": price,
-        "Stock": stock
-    }
-    inventory.append(product)
-    print("\nProduct added successfully!")
+    try:
+        inventory.add_product(Product(pid,name,price,stock))
+        print("\nProduct added successfully!")
+    except ValueError as err:
+        print(f"\n{err}")
 
 #Update stock of product
 def update_stock(inventory):
     pid = prompt_until_valid("Enter Product ID: ", parse_id)
-    product = find_by_id(inventory, pid)
+    product = inventory.search_product(pid)
     #Check if product exists
     if product is None:
         print("\nProduct Not Found")
         return
+    print(f"Product Found:\nName: {product.name}\nCurrent Stock: {product.stock}\n")
     #Update Stock
-    print(f"Product Found:\nName: {product['Name']}\nCurrent Stock: {product['Stock']}\n")
-    product["Stock"] = prompt_until_valid("New Stock Quantity: ", parse_qty)
+    while True:
+        qty = prompt_until_valid("New Stock Quantity: ", parse_qty)
+        try:
+            product.update_stock(qty)
+            break
+        except ValueError as err:
+            print(f"\n{err}")
     print("\nStock updated successfully!")
 
 #Search and display product in inventory
 def search_product(inventory):
     print("Search Product")
     pid = prompt_until_valid("Enter Product ID: ", parse_id)
-    product = find_by_id(inventory, pid)
+    product = inventory.search_product(pid)
     if product is None:
         print("\nProduct Not Found")
     else:
         print("\nProduct Found")
         print("-------------------------------------------")
-        print(f"ID:{product['ID']}\nName:{product['Name']}\nPrice:${product['Price']}\nStock:{product['Stock']}")
+        product.display_info()
         print("-------------------------------------------")
-
-#Alert if total stock exceeds 500 units
-def inventory_cap(inventory, product, qty, cap=500):
-    pass
 
 #print menu options
 def menu_page(menu):
@@ -161,7 +174,7 @@ def manager():
     inventory = load_inventory(file)
     #User menu options
     menu = {
-        "Display All Products": lambda: display_all(inventory),
+        "Display All Products": inventory.display_all,
         "Add New Product": lambda: add_product(inventory),
         "Update Stock": lambda: update_stock(inventory),
         "Search Product": lambda: search_product(inventory),
